@@ -27,6 +27,43 @@ namespace NStore.Persistence.MsSql
             }
         }
 
+        private async Task RangeQuery(
+            string partitionId,
+            long lowerIndexInclusive,
+            long upperIndexInclusive,
+            int limit,
+            bool descending,
+            ISubscription subscription,
+            CancellationToken cancellationToken)
+        {
+            var sql = _options.RangeSelect(
+                upperIndexInclusive: upperIndexInclusive,
+                lowerIndexInclusive: lowerIndexInclusive,
+                limit: limit,
+                descending: descending
+            );
+
+            using (var connection = Connect())
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+                using (var command = new SqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@PartitionId", partitionId);
+
+                    if (lowerIndexInclusive > 0 && lowerIndexInclusive != Int64.MaxValue)
+                        command.Parameters.AddWithValue("@lowerIndexInclusive", lowerIndexInclusive);
+
+                    if (upperIndexInclusive > 0 && upperIndexInclusive != Int64.MaxValue)
+                    {
+                        command.Parameters.AddWithValue("@upperIndexInclusive", upperIndexInclusive);
+                    }
+
+                    await PushToSubscriber(command, lowerIndexInclusive, subscription, false, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
         public async Task ReadForwardAsync(
             string partitionId,
             long fromLowerIndexInclusive,
@@ -35,6 +72,17 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
+            await RangeQuery(
+                partitionId,
+                fromLowerIndexInclusive,
+                toUpperIndexInclusive,
+                limit,
+                false,
+                subscription,
+                cancellationToken
+            ).ConfigureAwait(false);
+
+            return;
             var sql = _options.RangeSelect(
                 upperIndexInclusive: toUpperIndexInclusive,
                 lowerIndexInclusive: fromLowerIndexInclusive,
