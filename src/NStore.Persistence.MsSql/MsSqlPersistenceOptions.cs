@@ -76,8 +76,8 @@ namespace NStore.Persistence.MsSql
         }
 
         public virtual string BuildSelect(
-            long fromLowerIndexInclusive,
-            long toUpperIndexInclusive,
+            long min,
+            long max,
             int limit
             )
         {
@@ -91,12 +91,12 @@ namespace NStore.Persistence.MsSql
             sb.Append($"FROM {this.StreamsTableName} ");
             sb.Append("WHERE [PartitionId] = @PartitionId ");
 
-            if (fromLowerIndexInclusive > 0)
-                sb.Append("AND [Index] >= @fromLowerIndexInclusive ");
+            if (min > 0)
+                sb.Append("AND [Index] >= @min ");
 
-            if (toUpperIndexInclusive > 0 && toUpperIndexInclusive != Int64.MaxValue)
+            if (max > 0 && max != Int64.MaxValue)
             {
-                sb.Append("AND [Index] <= @toUpperIndexInclusive ");
+                sb.Append("AND [Index] <= @max ");
             }
 
             sb.Append("ORDER BY [Index]");
@@ -105,8 +105,8 @@ namespace NStore.Persistence.MsSql
         }
 
         public string BuildSelect2(
-            long fromUpperIndexInclusive,
-            long toLowerIndexInclusive,
+            long max,
+            long min,
             int limit
             )
         {
@@ -120,15 +120,16 @@ namespace NStore.Persistence.MsSql
             sb.Append($"FROM {StreamsTableName} ");
             sb.Append($"WHERE [PartitionId] = @PartitionId ");
 
-            if (fromUpperIndexInclusive > 0)
+            if (min > 0 && min != Int64.MinValue)
             {
-                sb.Append("AND [Index] <= @fromUpperIndexInclusive ");
+                sb.Append("AND [Index] >= @min ");
             }
 
-            if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
+            if (max > 0)
             {
-                sb.Append("AND [Index] >= @toLowerIndexInclusive ");
+                sb.Append("AND [Index] <= @max ");
             }
+
             sb.Append("ORDER BY [Index] DESC");
 
             return sb.ToString();

@@ -35,7 +35,11 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sql = _options.BuildSelect(fromLowerIndexInclusive, toUpperIndexInclusive, limit);
+            var sql = _options.BuildSelect(
+                min: fromLowerIndexInclusive, 
+                max: toUpperIndexInclusive, 
+                limit: limit
+            );
 
             _logger.LogDebug($"Executing {sql}");
 
@@ -48,11 +52,11 @@ namespace NStore.Persistence.MsSql
                     command.Parameters.AddWithValue("@PartitionId", partitionId);
 
                     if (fromLowerIndexInclusive > 0)
-                        command.Parameters.AddWithValue("@fromLowerIndexInclusive", fromLowerIndexInclusive);
+                        command.Parameters.AddWithValue("@min", fromLowerIndexInclusive);
 
                     if (toUpperIndexInclusive > 0 && toUpperIndexInclusive != Int64.MaxValue)
                     {
-                        command.Parameters.AddWithValue("@toUpperIndexInclusive", toUpperIndexInclusive);
+                        command.Parameters.AddWithValue("@max", toUpperIndexInclusive);
                     }
 
                     await PushToSubscriber(command, fromLowerIndexInclusive, subscription, false, cancellationToken).ConfigureAwait(false);
@@ -109,7 +113,11 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sql = _options.BuildSelect2(fromUpperIndexInclusive, toLowerIndexInclusive, limit);
+            var sql = _options.BuildSelect2(
+                max: fromUpperIndexInclusive, 
+                min: toLowerIndexInclusive, 
+                limit: limit
+            );
 
             using (var connection = Connect())
             {
@@ -120,12 +128,12 @@ namespace NStore.Persistence.MsSql
                     command.Parameters.AddWithValue("@PartitionId", partitionId);
                     if (fromUpperIndexInclusive > 0)
                     {
-                        command.Parameters.AddWithValue("@fromUpperIndexInclusive", fromUpperIndexInclusive);
+                        command.Parameters.AddWithValue("@max", fromUpperIndexInclusive);
                     }
 
                     if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
                     {
-                        command.Parameters.AddWithValue("@toLowerIndexInclusive", toLowerIndexInclusive);
+                        command.Parameters.AddWithValue("@min", toLowerIndexInclusive);
                     }
 
                     await PushToSubscriber(command, fromUpperIndexInclusive, subscription, false, cancellationToken).ConfigureAwait(false);
