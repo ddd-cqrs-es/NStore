@@ -79,7 +79,7 @@ namespace NStore.Persistence.MsSql
             long min,
             long max,
             int limit
-            )
+        )
         {
             var sb = new StringBuilder("SELECT ");
             if (limit > 0 && limit != int.MaxValue)
@@ -107,8 +107,9 @@ namespace NStore.Persistence.MsSql
         public string BuildSelect2(
             long max,
             long min,
-            int limit
-            )
+            int limit,
+            bool descending = true
+        )
         {
             var sb = new StringBuilder("SELECT ");
             if (limit > 0 && limit != int.MaxValue)
@@ -130,7 +131,7 @@ namespace NStore.Persistence.MsSql
                 sb.Append("AND [Index] <= @max ");
             }
 
-            sb.Append("ORDER BY [Index] DESC");
+            sb.Append(@descending ? "ORDER BY [Index] DESC" : "ORDER BY [Index]");
 
             return sb.ToString();
         }
