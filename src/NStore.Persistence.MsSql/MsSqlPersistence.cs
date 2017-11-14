@@ -27,7 +27,7 @@ namespace NStore.Persistence.MsSql
             }
         }
 
-        private async Task RangeQuery(
+        private async Task ScanRange(
             string partitionId,
             long lowerIndexInclusive,
             long upperIndexInclusive,
@@ -59,7 +59,7 @@ namespace NStore.Persistence.MsSql
                         command.Parameters.AddWithValue("@upperIndexInclusive", upperIndexInclusive);
                     }
 
-                    await PushToSubscriber(command, lowerIndexInclusive, subscription, false, cancellationToken)
+                    await PushToSubscriber(command, descending ? upperIndexInclusive : lowerIndexInclusive, subscription, false, cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
@@ -72,44 +72,15 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            await RangeQuery(
-                partitionId,
-                fromLowerIndexInclusive,
-                toUpperIndexInclusive,
-                limit,
-                false,
-                subscription,
-                cancellationToken
-            ).ConfigureAwait(false);
-
-            return;
-            var sql = _options.RangeSelect(
-                upperIndexInclusive: toUpperIndexInclusive,
+            await ScanRange(
+                partitionId: partitionId,
                 lowerIndexInclusive: fromLowerIndexInclusive,
+                upperIndexInclusive: toUpperIndexInclusive,
                 limit: limit,
-                descending: false
-            );
-
-            using (var connection = Connect())
-            {
-                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-                using (var command = new SqlCommand(sql, connection))
-                {
-                    command.Parameters.AddWithValue("@PartitionId", partitionId);
-
-                    if (fromLowerIndexInclusive > 0 && fromLowerIndexInclusive != Int64.MaxValue)
-                        command.Parameters.AddWithValue("@lowerIndexInclusive", fromLowerIndexInclusive);
-
-                    if (toUpperIndexInclusive > 0 && toUpperIndexInclusive != Int64.MaxValue)
-                    {
-                        command.Parameters.AddWithValue("@upperIndexInclusive", toUpperIndexInclusive);
-                    }
-
-                    await PushToSubscriber(command, fromLowerIndexInclusive, subscription, false, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+                @descending: false,
+                subscription: subscription,
+                cancellationToken: cancellationToken
+            ).ConfigureAwait(false);
         }
 
         public async Task ReadBackwardAsync(
@@ -120,35 +91,15 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sql = _options.RangeSelect(
-                upperIndexInclusive: fromUpperIndexInclusive,
+            await ScanRange(
+                partitionId: partitionId,
                 lowerIndexInclusive: toLowerIndexInclusive,
+                upperIndexInclusive: fromUpperIndexInclusive,
                 limit: limit,
-                descending: true
-            );
-
-            using (var connection = Connect())
-            {
-                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-                using (var command = new SqlCommand(sql, connection))
-                {
-                    command.Parameters.AddWithValue("@PartitionId", partitionId);
-                    
-                    if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
-                    {
-                        command.Parameters.AddWithValue("@lowerIndexInclusive", toLowerIndexInclusive);
-                    }
-
-                    if (fromUpperIndexInclusive > 0 && fromUpperIndexInclusive != Int64.MaxValue)
-                    {
-                        command.Parameters.AddWithValue("@upperIndexInclusive", fromUpperIndexInclusive);
-                    }
-
-                    await PushToSubscriber(command, fromUpperIndexInclusive, subscription, false, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+                @descending: true,
+                subscription: subscription,
+                cancellationToken: cancellationToken
+            ).ConfigureAwait(false);
         }
 
         private async Task PushToSubscriber(SqlCommand command, long start, ISubscription subscription,
