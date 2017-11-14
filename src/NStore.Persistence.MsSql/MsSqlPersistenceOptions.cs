@@ -76,37 +76,17 @@ namespace NStore.Persistence.MsSql
         }
 
         public virtual string BuildSelect(
-            long min,
-            long max,
+            long lowerIndexInclusive,
+            long upperIndexInclusive,
             int limit
         )
         {
-            var sb = new StringBuilder("SELECT ");
-            if (limit > 0 && limit != int.MaxValue)
-            {
-                sb.Append($"TOP {limit} ");
-            }
-
-            sb.Append("[Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo] ");
-            sb.Append($"FROM {this.StreamsTableName} ");
-            sb.Append("WHERE [PartitionId] = @PartitionId ");
-
-            if (min > 0)
-                sb.Append("AND [Index] >= @min ");
-
-            if (max > 0 && max != Int64.MaxValue)
-            {
-                sb.Append("AND [Index] <= @max ");
-            }
-
-            sb.Append("ORDER BY [Index]");
-
-            return sb.ToString();
+            return BuildSelect2(upperIndexInclusive, lowerIndexInclusive, limit, false);
         }
 
         public string BuildSelect2(
-            long max,
-            long min,
+            long upperIndexInclusive,
+            long lowerIndexInclusive,
             int limit,
             bool descending = true
         )
@@ -121,14 +101,14 @@ namespace NStore.Persistence.MsSql
             sb.Append($"FROM {StreamsTableName} ");
             sb.Append($"WHERE [PartitionId] = @PartitionId ");
 
-            if (min > 0 && min != Int64.MinValue)
+            if (lowerIndexInclusive > 0 && lowerIndexInclusive != Int64.MinValue)
             {
-                sb.Append("AND [Index] >= @min ");
+                sb.Append("AND [Index] >= @lowerIndexInclusive ");
             }
 
-            if (max > 0)
+            if (upperIndexInclusive > 0 && upperIndexInclusive != Int64.MaxValue)
             {
-                sb.Append("AND [Index] <= @max ");
+                sb.Append("AND [Index] <= @upperIndexInclusive ");
             }
 
             sb.Append(@descending ? "ORDER BY [Index] DESC" : "ORDER BY [Index]");
