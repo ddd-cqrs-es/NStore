@@ -17,7 +17,7 @@ namespace NStore.Persistence.MsSql
             StreamsTableName = "Streams";
         }
 
-        public virtual string GetCreateTableScript()
+        public virtual string GetCreateTableSql()
         {
             return $@"CREATE TABLE [{StreamsTableName}](
                 [Position] BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -33,7 +33,7 @@ namespace NStore.Persistence.MsSql
 ";
         }
 
-        public virtual string GetPersistScript()
+        public virtual string GetInsertChunkSql()
         {
             return $@"INSERT INTO [{StreamsTableName}]
                       ([PartitionId], [Index], [Payload], [OperationId], [SerializerInfo])
@@ -41,28 +41,28 @@ namespace NStore.Persistence.MsSql
                       VALUES (@PartitionId, @Index, @Payload, @OperationId, @SerializerInfo)";
         }
 
-        public virtual string GetDeleteStreamScript()
+        public virtual string GetDeleteStreamChunksSql()
         {
             return $@"DELETE FROM [{StreamsTableName}] WHERE 
                           [PartitionId] = @PartitionId 
                       AND [Index] BETWEEN @fromLowerIndexInclusive AND @toUpperIndexInclusive";
         }
 
-        public virtual string GetFindByStreamAndOperation()
+        public virtual string GetSelectChunkByStreamAndOperation()
         {
             return $@"SELECT [Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo]
                       FROM [{StreamsTableName}] 
                       WHERE [PartitionId] = @PartitionId AND [OperationId] = @OperationId";
         }
 
-        public virtual string GetFindAllByOperation()
+        public virtual string GetSelectAllChunksByOperationSql()
         {
             return $@"SELECT [Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo]
                       FROM [{StreamsTableName}] 
                       WHERE [OperationId] = @OperationId";
         }
 
-        public virtual string GetLastChunkScript()
+        public virtual string GetSelectLastChunkSql()
         {
             return $@"SELECT TOP 1 
                         [Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo]
@@ -75,7 +75,7 @@ namespace NStore.Persistence.MsSql
                           [Position] DESC";
         }
 
-        public virtual string RangeSelect(
+        public virtual string GetRangeSelectChunksSql(
             long upperIndexInclusive,
             long lowerIndexInclusive,
             int limit,
@@ -107,7 +107,7 @@ namespace NStore.Persistence.MsSql
             return sb.ToString();
         }
 
-        public virtual string GetDropTable()
+        public virtual string GetDropTableSql()
         {
             return
                 $"if exists (select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{this.StreamsTableName}' AND TABLE_SCHEMA = 'dbo') " +
@@ -116,7 +116,7 @@ namespace NStore.Persistence.MsSql
 
         public virtual string GetCreateTableIfMissingSql(string tableName)
         {
-            var sql = GetCreateTableScript();
+            var sql = GetCreateTableSql();
             
             return $@"
 if not exists (select * from dbo.sysobjects where id = object_id(N'{
@@ -128,7 +128,7 @@ END
 ";
         }
 
-        public virtual string GetReadAll(int limit)
+        public virtual string GetReadAllChunksSql(int limit)
         {
             var top = limit != Int32.MaxValue ? $"TOP {limit}" : "";
 
@@ -143,7 +143,7 @@ END
             
         }
 
-        public virtual string ReadLast()
+        public virtual string GetSelectLastPositionSql()
         {
             return $@"SELECT TOP 1
                         [Position]

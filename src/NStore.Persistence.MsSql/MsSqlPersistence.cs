@@ -39,7 +39,7 @@ namespace NStore.Persistence.MsSql
             ISubscription subscription,
             CancellationToken cancellationToken)
         {
-            var sql = _options.RangeSelect(
+            var sql = _options.GetRangeSelectChunksSql(
                 upperIndexInclusive: upperIndexInclusive,
                 lowerIndexInclusive: lowerIndexInclusive,
                 limit: limit,
@@ -155,7 +155,7 @@ namespace NStore.Persistence.MsSql
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-                using (var command = new SqlCommand(_options.GetLastChunkScript(), connection))
+                using (var command = new SqlCommand(_options.GetSelectLastChunkSql(), connection))
                 {
                     command.Parameters.AddWithValue("@PartitionId", partitionId);
                     command.Parameters.AddWithValue("@toUpperIndexInclusive", fromUpperIndexInclusive);
@@ -192,7 +192,7 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sql = _options.GetReadAll(limit);
+            var sql = _options.GetReadAllChunksSql(limit);
 
             using (var connection = Connect())
             {
@@ -209,7 +209,7 @@ namespace NStore.Persistence.MsSql
 
         public async Task<long> ReadLastPositionAsync(CancellationToken cancellationToken)
         {
-            var sql = _options.ReadLast();
+            var sql = _options.GetSelectLastPositionSql();
 
             using (var connection = Connect())
             {
@@ -251,7 +251,7 @@ namespace NStore.Persistence.MsSql
                 using (var connection = Connect())
                 {
                     await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                    using (var command = new SqlCommand(_options.GetPersistScript(), connection))
+                    using (var command = new SqlCommand(_options.GetInsertChunkSql(), connection))
                     {
                         command.Parameters.AddWithValue("@PartitionId", partitionId);
                         command.Parameters.AddWithValue("@Index", index);
@@ -298,7 +298,7 @@ namespace NStore.Persistence.MsSql
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-                using (var command = new SqlCommand(_options.GetDeleteStreamScript(), connection))
+                using (var command = new SqlCommand(_options.GetDeleteStreamChunksSql(), connection))
                 {
                     command.Parameters.AddWithValue("@PartitionId", partitionId);
                     command.Parameters.AddWithValue("@fromLowerIndexInclusive", fromLowerIndexInclusive);
@@ -322,7 +322,7 @@ namespace NStore.Persistence.MsSql
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-                using (var command = new SqlCommand(_options.GetFindByStreamAndOperation(), connection))
+                using (var command = new SqlCommand(_options.GetSelectChunkByStreamAndOperation(), connection))
                 {
                     command.Parameters.AddWithValue("@PartitionId", partitionId);
                     command.Parameters.AddWithValue("@OperationId", operationId);
@@ -338,7 +338,7 @@ namespace NStore.Persistence.MsSql
             using (var connection = Connect())
             {
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                using (var command = new SqlCommand(_options.GetFindAllByOperation(), connection))
+                using (var command = new SqlCommand(_options.GetSelectAllChunksByOperationSql(), connection))
                 {
                     command.Parameters.AddWithValue("@OperationId", operationId);
                     await PushToSubscriber(command, 0, subscription, true, cancellationToken).ConfigureAwait(false);
@@ -356,7 +356,7 @@ namespace NStore.Persistence.MsSql
             using (var conn = Connect())
             {
                 await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
-                var sql = _options.GetDropTable();
+                var sql = _options.GetDropTableSql();
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
