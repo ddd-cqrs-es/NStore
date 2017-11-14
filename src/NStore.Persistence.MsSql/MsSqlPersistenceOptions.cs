@@ -127,5 +127,30 @@ BEGIN
 END
 ";
         }
+
+        public virtual string GetReadAll(int limit)
+        {
+            var top = limit != Int32.MaxValue ? $"TOP {limit}" : "";
+
+            return $@"SELECT {top} 
+                        [Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo]
+                      FROM 
+                        [{this.StreamsTableName}] 
+                      WHERE 
+                          [Position] >= @fromPositionInclusive 
+                      ORDER BY 
+                          [Position]";
+            
+        }
+
+        public virtual string ReadLast()
+        {
+            return $@"SELECT TOP 1
+                        [Position]
+                      FROM 
+                        [{this.StreamsTableName}] 
+                      ORDER BY 
+                          [Position] DESC";
+        }
     }
 }

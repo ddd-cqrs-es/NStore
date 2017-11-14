@@ -192,16 +192,7 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var top = limit != Int32.MaxValue ? $"TOP {limit}" : "";
-
-            var sql = $@"SELECT {top} 
-                        [Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo]
-                      FROM 
-                        [{_options.StreamsTableName}] 
-                      WHERE 
-                          [Position] >= @fromPositionInclusive 
-                      ORDER BY 
-                          [Position]";
+            var sql = _options.GetReadAll(limit);
 
             using (var connection = Connect())
             {
@@ -218,12 +209,7 @@ namespace NStore.Persistence.MsSql
 
         public async Task<long> ReadLastPositionAsync(CancellationToken cancellationToken)
         {
-            var sql = $@"SELECT TOP 1
-                        [Position]
-                      FROM 
-                        [{_options.StreamsTableName}] 
-                      ORDER BY 
-                          [Position] DESC";
+            var sql = _options.ReadLast();
 
             using (var connection = Connect())
             {
