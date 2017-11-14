@@ -106,5 +106,26 @@ namespace NStore.Persistence.MsSql
 
             return sb.ToString();
         }
+
+        public virtual string GetDropTable()
+        {
+            return
+                $"if exists (select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{this.StreamsTableName}' AND TABLE_SCHEMA = 'dbo') " +
+                $"DROP TABLE {this.StreamsTableName}";
+        }
+
+        public virtual string GetCreateTableIfMissingSql(string tableName)
+        {
+            var sql = GetCreateTableScript();
+            
+            return $@"
+if not exists (select * from dbo.sysobjects where id = object_id(N'{
+                    tableName
+                }') and OBJECTPROPERTY(id, N'IsUserTable') = 1) 
+BEGIN
+{sql}
+END
+";
+        }
     }
 }

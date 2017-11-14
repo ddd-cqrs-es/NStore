@@ -11,6 +11,9 @@ namespace NStore.Persistence.MsSql
 {
     public class MsSqlPersistence : IPersistence
     {
+        private const int DuplicatedIndexExceptionErrorNumber = 2601;
+        private int REFACTOR_TO_USE_SEQUENCE_OR_NOT_STRICTLY_SEQUENTIAL_VALUE = 0;
+
         private readonly MsSqlPersistenceOptions _options;
         private readonly INStoreLogger _logger;
 
@@ -244,7 +247,7 @@ namespace NStore.Persistence.MsSql
             CancellationToken cancellationToken)
         {
             if (index == -1)
-                index = Interlocked.Increment(ref USE_SEQUENCE_INSTEAD);
+                index = Interlocked.Increment(ref REFACTOR_TO_USE_SEQUENCE_OR_NOT_STRICTLY_SEQUENTIAL_VALUE);
 
             var chunk = new MsSqlChunk()
             {
@@ -277,7 +280,7 @@ namespace NStore.Persistence.MsSql
             }
             catch (SqlException ex)
             {
-                if (ex.Number == DUPLICATED_INDEX_EXCEPTION)
+                if (ex.Number == DuplicatedIndexExceptionErrorNumber)
                 {
                     if (ex.Message.Contains("_IDX"))
                     {
@@ -298,10 +301,6 @@ namespace NStore.Persistence.MsSql
 
             return chunk;
         }
-
-        private const int DUPLICATED_INDEX_EXCEPTION = 2601;
-
-        private int USE_SEQUENCE_INSTEAD = 0;
 
         public async Task DeleteAsync(
             string partitionId,
@@ -371,9 +370,7 @@ namespace NStore.Persistence.MsSql
             using (var conn = Connect())
             {
                 await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
-                var sql =
-                    $"if exists (select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{_options.StreamsTableName}' AND TABLE_SCHEMA = 'dbo') " +
-                    $"DROP TABLE {_options.StreamsTableName}";
+                var sql = _options.GetDropTable();
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -386,24 +383,12 @@ namespace NStore.Persistence.MsSql
             using (var conn = Connect())
             {
                 await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
-                var sql = GetCreateTableIfMissingSql(tableName, _options.GetCreateTableScript());
+                var sql = _options.GetCreateTableIfMissingSql(tableName);
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
-        }
-
-        private string GetCreateTableIfMissingSql(string tableName, string sql)
-        {
-            return $@"
-if not exists (select * from dbo.sysobjects where id = object_id(N'{
-                    tableName
-                }') and OBJECTPROPERTY(id, N'IsUserTable') = 1) 
-BEGIN
-{sql}
-END
-";
         }
 
         private SqlConnection Connect()
