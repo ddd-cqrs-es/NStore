@@ -1,3 +1,5 @@
+using System;
+using System.Text;
 using NStore.Core.Logging;
 
 namespace NStore.Persistence.MsSql
@@ -71,6 +73,65 @@ namespace NStore.Persistence.MsSql
                       AND [Index] <= @toUpperIndexInclusive 
                       ORDER BY 
                           [Position] DESC";
+        }
+
+        public virtual string BuildSelect(
+            long fromLowerIndexInclusive,
+            long toUpperIndexInclusive,
+            int limit
+            )
+        {
+            var sb = new StringBuilder("SELECT ");
+            if (limit > 0 && limit != int.MaxValue)
+            {
+                sb.Append($"TOP {limit} ");
+            }
+
+            sb.Append("[Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo] ");
+            sb.Append($"FROM {this.StreamsTableName} ");
+            sb.Append("WHERE [PartitionId] = @PartitionId ");
+
+            if (fromLowerIndexInclusive > 0)
+                sb.Append("AND [Index] >= @fromLowerIndexInclusive ");
+
+            if (toUpperIndexInclusive > 0 && toUpperIndexInclusive != Int64.MaxValue)
+            {
+                sb.Append("AND [Index] <= @toUpperIndexInclusive ");
+            }
+
+            sb.Append("ORDER BY [Index]");
+
+            return sb.ToString();
+        }
+
+        public string BuildSelect2(
+            long fromUpperIndexInclusive,
+            long toLowerIndexInclusive,
+            int limit
+            )
+        {
+            var sb = new StringBuilder("SELECT ");
+            if (limit > 0 && limit != int.MaxValue)
+            {
+                sb.Append($"TOP {limit} ");
+            }
+
+            sb.Append("[Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo] ");
+            sb.Append($"FROM {StreamsTableName} ");
+            sb.Append($"WHERE [PartitionId] = @PartitionId ");
+
+            if (fromUpperIndexInclusive > 0)
+            {
+                sb.Append("AND [Index] <= @fromUpperIndexInclusive ");
+            }
+
+            if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
+            {
+                sb.Append("AND [Index] >= @toLowerIndexInclusive ");
+            }
+            sb.Append("ORDER BY [Index] DESC");
+
+            return sb.ToString();
         }
     }
 }

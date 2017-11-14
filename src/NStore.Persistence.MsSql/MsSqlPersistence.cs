@@ -35,27 +35,7 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sb = new StringBuilder("SELECT ");
-            if (limit > 0 && limit != int.MaxValue)
-            {
-                sb.Append($"TOP {limit} ");
-            }
-
-            sb.Append("[Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo] ");
-            sb.Append($"FROM {_options.StreamsTableName} ");
-            sb.Append($"WHERE [PartitionId] = @PartitionId ");
-
-            if (fromLowerIndexInclusive > 0)
-                sb.Append("AND [Index] >= @fromLowerIndexInclusive ");
-
-            if (toUpperIndexInclusive > 0 && toUpperIndexInclusive != Int64.MaxValue)
-            {
-                sb.Append("AND [Index] <= @toUpperIndexInclusive ");
-            }
-
-            sb.Append("ORDER BY [Index]");
-
-            var sql = sb.ToString();
+            var sql = _options.BuildSelect(fromLowerIndexInclusive, toUpperIndexInclusive, limit);
 
             _logger.LogDebug($"Executing {sql}");
 
@@ -129,28 +109,7 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sb = new StringBuilder("SELECT ");
-            if (limit > 0 && limit != int.MaxValue)
-            {
-                sb.Append($"TOP {limit} ");
-            }
-
-            sb.Append("[Position], [PartitionId], [Index], [Payload], [OperationId], [SerializerInfo] ");
-            sb.Append($"FROM {_options.StreamsTableName} ");
-            sb.Append($"WHERE [PartitionId] = @PartitionId ");
-
-            if (fromUpperIndexInclusive > 0)
-            {
-                sb.Append("AND [Index] <= @fromUpperIndexInclusive ");
-            }
-
-            if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
-            {
-                sb.Append("AND [Index] >= @toLowerIndexInclusive ");
-            }
-            sb.Append("ORDER BY [Index] DESC");
-
-            var sql = sb.ToString();
+            var sql = _options.BuildSelect2(fromUpperIndexInclusive, toLowerIndexInclusive, limit);
 
             using (var connection = Connect())
             {
