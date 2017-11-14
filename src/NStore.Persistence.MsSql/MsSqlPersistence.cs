@@ -36,13 +36,11 @@ namespace NStore.Persistence.MsSql
             CancellationToken cancellationToken)
         {
             var sql = _options.RangeSelect(
-                upperIndexInclusive: toUpperIndexInclusive, 
-                lowerIndexInclusive: fromLowerIndexInclusive, 
+                upperIndexInclusive: toUpperIndexInclusive,
+                lowerIndexInclusive: fromLowerIndexInclusive,
                 limit: limit,
-                descending:false
+                descending: false
             );
-            
-            _logger.LogDebug($"Executing {sql}");
 
             using (var connection = Connect())
             {
@@ -52,7 +50,7 @@ namespace NStore.Persistence.MsSql
                 {
                     command.Parameters.AddWithValue("@PartitionId", partitionId);
 
-                    if (fromLowerIndexInclusive > 0)
+                    if (fromLowerIndexInclusive > 0 && fromLowerIndexInclusive != Int64.MaxValue)
                         command.Parameters.AddWithValue("@lowerIndexInclusive", fromLowerIndexInclusive);
 
                     if (toUpperIndexInclusive > 0 && toUpperIndexInclusive != Int64.MaxValue)
@@ -60,12 +58,53 @@ namespace NStore.Persistence.MsSql
                         command.Parameters.AddWithValue("@upperIndexInclusive", toUpperIndexInclusive);
                     }
 
-                    await PushToSubscriber(command, fromLowerIndexInclusive, subscription, false, cancellationToken).ConfigureAwait(false);
+                    await PushToSubscriber(command, fromLowerIndexInclusive, subscription, false, cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
         }
 
-        private async Task PushToSubscriber(SqlCommand command, long start, ISubscription subscription, bool broadcastPosition, CancellationToken cancellationToken)
+        public async Task ReadBackwardAsync(
+            string partitionId,
+            long fromUpperIndexInclusive,
+            ISubscription subscription,
+            long toLowerIndexInclusive,
+            int limit,
+            CancellationToken cancellationToken)
+        {
+            var sql = _options.RangeSelect(
+                upperIndexInclusive: fromUpperIndexInclusive,
+                lowerIndexInclusive: toLowerIndexInclusive,
+                limit: limit,
+                descending: true
+            );
+
+            using (var connection = Connect())
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+                using (var command = new SqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@PartitionId", partitionId);
+                    
+                    if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
+                    {
+                        command.Parameters.AddWithValue("@lowerIndexInclusive", toLowerIndexInclusive);
+                    }
+
+                    if (fromUpperIndexInclusive > 0 && fromUpperIndexInclusive != Int64.MaxValue)
+                    {
+                        command.Parameters.AddWithValue("@upperIndexInclusive", fromUpperIndexInclusive);
+                    }
+
+                    await PushToSubscriber(command, fromUpperIndexInclusive, subscription, false, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
+
+        private async Task PushToSubscriber(SqlCommand command, long start, ISubscription subscription,
+            bool broadcastPosition, CancellationToken cancellationToken)
         {
             long indexOrPosition = 0;
             await subscription.OnStartAsync(start).ConfigureAwait(false);
@@ -88,7 +127,8 @@ namespace NStore.Persistence.MsSql
                         indexOrPosition = broadcastPosition ? chunk.Position : chunk.Index;
 
                         // to handle exceptions with correct position
-                        chunk.Payload = _options.Serializer.Deserialize((byte[])reader.GetSqlBinary(3), chunk.SerializerInfo);
+                        chunk.Payload =
+                            _options.Serializer.Deserialize((byte[]) reader.GetSqlBinary(3), chunk.SerializerInfo);
 
                         if (!await subscription.OnNextAsync(chunk).ConfigureAwait(false))
                         {
@@ -106,44 +146,8 @@ namespace NStore.Persistence.MsSql
             }
         }
 
-        public async Task ReadBackwardAsync(
-            string partitionId,
-            long fromUpperIndexInclusive,
-            ISubscription subscription,
-            long toLowerIndexInclusive,
-            int limit,
+        public async Task<IChunk> ReadSingleBackwardAsync(string partitionId, long fromUpperIndexInclusive,
             CancellationToken cancellationToken)
-        {
-            var sql = _options.RangeSelect(
-                upperIndexInclusive: fromUpperIndexInclusive, 
-                lowerIndexInclusive: toLowerIndexInclusive, 
-                limit: limit,
-                descending:true
-            );
-
-            using (var connection = Connect())
-            {
-                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-                using (var command = new SqlCommand(sql, connection))
-                {
-                    command.Parameters.AddWithValue("@PartitionId", partitionId);
-                    if (fromUpperIndexInclusive > 0)
-                    {
-                        command.Parameters.AddWithValue("@upperIndexInclusive", fromUpperIndexInclusive);
-                    }
-
-                    if (toLowerIndexInclusive > 0 && toLowerIndexInclusive != Int64.MinValue)
-                    {
-                        command.Parameters.AddWithValue("@lowerIndexInclusive", toLowerIndexInclusive);
-                    }
-
-                    await PushToSubscriber(command, fromUpperIndexInclusive, subscription, false, cancellationToken).ConfigureAwait(false);
-                }
-            }
-        }
-
-        public async Task<IChunk> ReadSingleBackwardAsync(string partitionId, long fromUpperIndexInclusive, CancellationToken cancellationToken)
         {
             using (var connection = Connect())
             {
@@ -173,7 +177,7 @@ namespace NStore.Persistence.MsSql
                     PartitionId = reader.GetString(1),
                     Index = reader.GetInt64(2),
                     OperationId = reader.GetString(4),
-                    SerializerInfo=  reader.GetString(5),
+                    SerializerInfo = reader.GetString(5),
                 };
                 chunk.Payload = _options.Serializer.Deserialize((byte[]) reader.GetSqlBinary(3), chunk.SerializerInfo);
                 return chunk;
@@ -204,7 +208,8 @@ namespace NStore.Persistence.MsSql
                 {
                     command.Parameters.AddWithValue("@fromPositionInclusive", fromPositionInclusive);
 
-                    await PushToSubscriber(command, fromPositionInclusive, subscription, true, cancellationToken).ConfigureAwait(false);
+                    await PushToSubscriber(command, fromPositionInclusive, subscription, true, cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
         }
@@ -227,7 +232,7 @@ namespace NStore.Persistence.MsSql
                     if (result == null)
                         return 0;
 
-                    return (long)result;
+                    return (long) result;
                 }
             }
         }
@@ -266,7 +271,8 @@ namespace NStore.Persistence.MsSql
                         command.Parameters.AddWithValue("@Payload", new SqlBinary(bytes));
                         command.Parameters.AddWithValue("@SerializerInfo", serializerInfo);
 
-                        chunk.Position = (long)await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                        chunk.Position =
+                            (long) await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
@@ -281,7 +287,8 @@ namespace NStore.Persistence.MsSql
 
                     if (ex.Message.Contains("_OPID"))
                     {
-                        _logger.LogInformation($"Skipped duplicated chunk on '{partitionId}' by operation id '{operationId}'");
+                        _logger.LogInformation(
+                            $"Skipped duplicated chunk on '{partitionId}' by operation id '{operationId}'");
                         return null;
                     }
                 }
@@ -313,7 +320,7 @@ namespace NStore.Persistence.MsSql
                     command.Parameters.AddWithValue("@fromLowerIndexInclusive", fromLowerIndexInclusive);
                     command.Parameters.AddWithValue("@toUpperIndexInclusive", toUpperIndexInclusive);
 
-                    var deleted = (long)await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                    var deleted = (long) await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
                     if (deleted == 0)
                         throw new StreamDeleteException(partitionId);
@@ -341,7 +348,8 @@ namespace NStore.Persistence.MsSql
             }
         }
 
-        public async Task ReadAllByOperationIdAsync(string operationId, ISubscription subscription, CancellationToken cancellationToken)
+        public async Task ReadAllByOperationIdAsync(string operationId, ISubscription subscription,
+            CancellationToken cancellationToken)
         {
             using (var connection = Connect())
             {
@@ -364,8 +372,9 @@ namespace NStore.Persistence.MsSql
             using (var conn = Connect())
             {
                 await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
-                var sql = $"if exists (select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{_options.StreamsTableName}' AND TABLE_SCHEMA = 'dbo') " +
-                          $"DROP TABLE {_options.StreamsTableName}";
+                var sql =
+                    $"if exists (select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = '{_options.StreamsTableName}' AND TABLE_SCHEMA = 'dbo') " +
+                    $"DROP TABLE {_options.StreamsTableName}";
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -389,7 +398,9 @@ namespace NStore.Persistence.MsSql
         private string GetCreateTableIfMissingSql(string tableName, string sql)
         {
             return $@"
-if not exists (select * from dbo.sysobjects where id = object_id(N'{tableName}') and OBJECTPROPERTY(id, N'IsUserTable') = 1) 
+if not exists (select * from dbo.sysobjects where id = object_id(N'{
+                    tableName
+                }') and OBJECTPROPERTY(id, N'IsUserTable') = 1) 
 BEGIN
 {sql}
 END
