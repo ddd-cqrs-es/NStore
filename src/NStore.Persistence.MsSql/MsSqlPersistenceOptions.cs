@@ -75,16 +75,7 @@ namespace NStore.Persistence.MsSql
                           [Position] DESC";
         }
 
-        public virtual string BuildSelect(
-            long lowerIndexInclusive,
-            long upperIndexInclusive,
-            int limit
-        )
-        {
-            return BuildSelect2(upperIndexInclusive, lowerIndexInclusive, limit, false);
-        }
-
-        public string BuildSelect2(
+        public virtual string RangeSelect(
             long upperIndexInclusive,
             long lowerIndexInclusive,
             int limit,

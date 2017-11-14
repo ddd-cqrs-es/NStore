@@ -35,12 +35,13 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sql = _options.BuildSelect(
-                lowerIndexInclusive: fromLowerIndexInclusive, 
+            var sql = _options.RangeSelect(
                 upperIndexInclusive: toUpperIndexInclusive, 
-                limit: limit
+                lowerIndexInclusive: fromLowerIndexInclusive, 
+                limit: limit,
+                descending:false
             );
-
+            
             _logger.LogDebug($"Executing {sql}");
 
             using (var connection = Connect())
@@ -113,10 +114,11 @@ namespace NStore.Persistence.MsSql
             int limit,
             CancellationToken cancellationToken)
         {
-            var sql = _options.BuildSelect2(
+            var sql = _options.RangeSelect(
                 upperIndexInclusive: fromUpperIndexInclusive, 
                 lowerIndexInclusive: toLowerIndexInclusive, 
-                limit: limit
+                limit: limit,
+                descending:true
             );
 
             using (var connection = Connect())
